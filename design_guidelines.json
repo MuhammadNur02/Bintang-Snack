@@ -1,0 +1,128 @@
+{
+  "app_name": "JastipGo Consignment Manager",
+  "personality": "1 iOS-Native Clean",
+  "personality_one_liner": "A pristine iOS-native consignment ledger delivering effortless item tracking and financial settlements with warm ceramic aesthetics.",
+  "color": {
+    "surface": "#FDFCFA",
+    "onSurface": "#1A1A18",
+    "surfaceSecondary": "#F4F1EA",
+    "onSurfaceSecondary": "#2C2B27",
+    "surfaceTertiary": "#EAE5DC",
+    "onSurfaceTertiary": "#3D3C37",
+    "surfaceInverse": "#1A1A18",
+    "onSurfaceInverse": "#FDFCFA",
+    "brand": "#C85A32",
+    "brandPrimary": "#C85A32",
+    "onBrandPrimary": "#FFFFFF",
+    "brandSecondary": "#D47853",
+    "onBrandSecondary": "#FFFFFF",
+    "brandTertiary": "#F7EBE5",
+    "onBrandTertiary": "#9E3C18",
+    "success": "#3B7A57",
+    "onSuccess": "#FFFFFF",
+    "warning": "#C27803",
+    "onWarning": "#FFFFFF",
+    "error": "#A33324",
+    "onError": "#FFFFFF",
+    "info": "#3B6E8C",
+    "onInfo": "#FFFFFF",
+    "border": "#E2DDD5",
+    "borderStrong": "#C8BFAF",
+    "divider": "#EFECE6"
+  },
+  "typography": {
+    "displayFontFamily": "PlusJakartaSans-Medium",
+    "textFontFamily": "PlusJakartaSans-Regular",
+    "scale": {
+      "sm": 12,
+      "base": 14,
+      "lg": 16,
+      "xl": 20,
+      "2xl": 24
+    }
+  },
+  "spacing": {
+    "rule": "Generous vertical padding, comfortable iOS margins, and clear grouping for consignment rows and financial summaries.",
+    "xs": 4,
+    "sm": 8,
+    "md": 12,
+    "lg": 16,
+    "xl": 24,
+    "2xl": 32,
+    "3xl": 48
+  },
+  "radius_tokens": {
+    "sm": 6,
+    "md": 12,
+    "lg": 20,
+    "pill": 999
+  },
+  "shadow_tier": "1",
+  "navigation": "bottom_tabs",
+  "icon_set": "Ionicons",
+  "glassmorphism": {
+    "enabled": true,
+    "do's": [
+      "Use frosted glass header and sticky bottom summary bar over scrolling consignment table."
+    ],
+    "dont's": [
+      "Never blur dense data cells or modal input forms."
+    ]
+  },
+  "platform_libraries": {
+    "glass": {
+      "ios": "expo-glass-effect",
+      "android": "expo-blur",
+      "low_end_android_fallback": "solid surfaceSecondary"
+    },
+    "image": "expo-image",
+    "blur": "expo-blur",
+    "bottom_sheet": "@gorhom/bottom-sheet",
+    "animation": "react-native-reanimated",
+    "gesture": "react-native-gesture-handler"
+  },
+  "screens": [
+    {
+      "name": "Dashboard & Ledger",
+      "purpose": "Overview of active consignment items, consignor list, stock totals, and financial payout calculations.",
+      "states": {
+        "loading": "Centered warm spinner with loading status text",
+        "empty": "Empty clipboard illustration with prompt to add first consignment item",
+        "error": "Error banner with retry button for data synchronization"
+      },
+      "layout": "Sticky glass header with search & filter chips, scrollable list of item rows showing Nama Penitip, Nama Item, Harga Pokok, Harga Jual, Titip, Sisa, and calculated Setor = (Titip - Sisa) * Harga Pokok. Sticky bottom summary bar with total payout and quick Add Item button."
+    },
+    {
+      "name": "Add / Edit Item Modal",
+      "purpose": "Comprehensive form to record new consignment items with consignor name, item name, cost price, selling price, and initial stock.",
+      "states": {
+        "loading": "Saving indicator on action button",
+        "empty": "Clean form fields ready for input",
+        "error": "Validation alerts for missing or invalid numerical fields"
+      },
+      "layout": "Bottom sheet or full-screen modal with grouped form inputs, live calculation preview of potential revenue and setor amount, and sticky bottom submit button."
+    },
+    {
+      "name": "Consignor Payout Summary",
+      "purpose": "Detailed financial breakdown per penitip showing total items consigned, sold, remaining stock, and total amount to remit (Setor).",
+      "states": {
+        "loading": "Skeleton loader for financial cards",
+        "empty": "No active consignors found",
+        "error": "Failed to load settlement data with retry option"
+      },
+      "layout": "Card-based breakdown grouped by Nama Penitip with financial summaries, export settlement button, and item breakdown list."
+    }
+  ],
+  "images": {
+    "hero_banner": {
+      "url": "https://images.unsplash.com/photo-1693890457640-33df2e4e97d1?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "dark": "https://images.unsplash.com/photo-1693890457640-33df2e4e97d1?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "alt": "Artisanal snack packaging and flatlay"
+    },
+    "empty_state": {
+      "url": "https://images.unsplash.com/photo-1537788598888-2e419631dc77?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "alt": "Snack ingredients bowl"
+    }
+  },
+  "instructions_to_main_agent": "Implement the JastipGo Consignment Manager mobile app with exact adherence to the problem statement: 1. Add fields for Nama Penitip, Nama Item, Harga Pokok, Harga Jual, Titip. 2. Rename columns 'Terjual' to 'Sisa' and 'Sisa (Setor)' to 'Setor'. 3. Apply formula Setor = (Titip - Sisa) * Harga Pokok (e.g. Harga Pokok 1000, Titip 3, Sisa 1 -> Setor 2000). 4. Build complete Add Item modal with live calculation preview and real-time financial summary per consignor. Ensure iOS-native clean styling with warm ceramic surfaces and no banned colors."
+}
