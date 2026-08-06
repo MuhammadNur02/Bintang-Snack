@@ -11,19 +11,23 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Linking,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
+import { Image } from "expo-image";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+// @ts-ignore
+import * as ImagePicker from "expo-image-picker";
 import { INITIAL_CONSIGNMENT_ITEMS, ConsignmentItem, calculateSetor, calculateTerjual } from "@/src/mock";
 
-const STORAGE_KEY = "@apk_jastip_bintang_snack_items_v2";
+const STORAGE_KEY = "@apk_jastip_bintang_snack_items_v3";
 
 export default function App() {
   const [items, setItems] = useState<ConsignmentItem[]>(INITIAL_CONSIGNMENT_ITEMS);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPenitipFilter, setSelectedPenitipFilter] = useState("Semua");
-  const [activeTab, setActiveTab] = useState<"ledger" | "consignors" | "summary">("ledger");
+  const [activeTab, setActiveTab] = useState<"ledger" | "summary">("ledger");
 
   // Modal State
   const [modalVisible, setModalVisible] = useState(false);
@@ -31,11 +35,13 @@ export default function App() {
 
   // Form Fields
   const [penitip, setPenitip] = useState("");
+  const [whatsapp, setWhatsapp] = useState("");
   const [itemName, setItemName] = useState("");
   const [hargaPokok, setHargaPokok] = useState("");
   const [hargaJual, setHargaJual] = useState("");
   const [titip, setTitip] = useState("");
   const [sisa, setSisa] = useState("");
+  const [imageUri, setImageUri] = useState("");
 
   useEffect(() => {
     loadSavedData();
@@ -60,7 +66,6 @@ export default function App() {
     }
   };
 
-  // Unique list of penitip for filters
   const penitipList = ["Semua", ...Array.from(new Set(items.map((i) => i.penitip)))];
 
   const filteredItems = items.filter((item) => {
@@ -72,31 +77,58 @@ export default function App() {
     return matchesSearch && matchesPenitip;
   });
 
+  const pickImage = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert("Izin Ditolak", "Izin akses galeri foto diperlukan untuk melampirkan foto barang.");
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.7,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setImageUri(result.assets[0].uri);
+      }
+    } catch (e) {
+      console.error("Error picking image", e);
+    }
+  };
+
   const openAddModal = () => {
     setEditingItem(null);
     setPenitip("");
+    setWhatsapp("");
     setItemName("");
     setHargaPokok("");
     setHargaJual("");
     setTitip("");
     setSisa("");
+    setImageUri("");
     setModalVisible(true);
   };
 
   const openEditModal = (item: ConsignmentItem) => {
     setEditingItem(item);
     setPenitip(item.penitip);
+    setWhatsapp(item.whatsapp || "");
     setItemName(item.itemName);
     setHargaPokok(item.hargaPokok.toString());
     setHargaJual(item.hargaJual.toString());
     setTitip(item.titip.toString());
     setSisa(item.sisa.toString());
+    setImageUri(item.imageUri || "");
     setModalVisible(true);
   };
 
   const handleSaveItem = () => {
     if (!penitip.trim() || !itemName.trim() || !hargaPokok || !hargaJual || !titip || sisa === "") {
-      Alert.alert("Perhatian", "Semua kolom form wajib diisi dengan benar.");
+      Alert.alert("Perhatian", "Semua kolom utama wajib diisi dengan benar.");
       return;
     }
 
@@ -107,6 +139,11 @@ export default function App() {
 
     if (isNaN(hp) || isNaN(hj) || isNaN(t) || isNaN(s)) {
       Alert.alert("Error", "Harga dan jumlah harus berupa angka.");
+      return;
+    }
+
+    if (t < 1) {
+      Alert.alert("Perhatian", "Jumlah titip minimal 1 pcs.");
       return;
     }
 
@@ -122,11 +159,13 @@ export default function App() {
           ? {
               ...i,
               penitip: penitip.trim(),
+              whatsapp: whatsapp.trim(),
               itemName: itemName.trim(),
               hargaPokok: hp,
               hargaJual: hj,
               titip: t,
               sisa: s,
+              imageUri: imageUri || i.imageUri,
               updatedAt: new Date().toISOString(),
             }
           : i
@@ -135,11 +174,13 @@ export default function App() {
       const newItem: ConsignmentItem = {
         id: "item-" + Date.now(),
         penitip: penitip.trim(),
+        whatsapp: whatsapp.trim(),
         itemName: itemName.trim(),
         hargaPokok: hp,
         hargaJual: hj,
         titip: t,
         sisa: s,
+        imageUri: imageUri || "https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=400&q=80",
         updatedAt: new Date().toISOString(),
       };
       updated = [newItem, ...items];
@@ -165,14 +206,50 @@ export default function App() {
     ]);
   };
 
-  // Financial Summary Totals (active values tracked for dashboard metrics)
-  const totalSetorAmount = items.reduce((acc, curr) => acc + calculateSetor(curr), 0);
+  const formatIDR = (val: number) => {
+    return "Rp " + val.toLocaleString("id-ID");
+  };
+
+  // WhatsApp Share function
+  const handleShareWhatsApp = (item: ConsignmentItem) => {
+    const terjual = calculateTerjual(item.titip, item.sisa);
+    const setor = calculateSetor(item);
+    
+    let phone = item.whatsapp.trim();
+    if (!phone) {
+      Alert.alert("Nomor WhatsApp Kosong", "Harap isi nomor WhatsApp penitip terlebih dahulu pada menu edit.");
+      return;
+    }
+    // Clean phone number (remove leading 0 or + and prepend 62 if needed)
+    if (phone.startsWith("0")) {
+      phone = "62" + phone.slice(1);
+    } else if (phone.startsWith("+")) {
+      phone = phone.slice(1);
+    }
+
+    const message = 
+      `Halo *${item.penitip}*, berikut rekap titipan produk snack di Jastip Bintang Snack:\n\n` +
+      `📦 *${item.itemName}*\n` +
+      (item.imageUri ? `🖼️ Foto Barang: ${item.imageUri}\n` : '') +
+      `• Titip: ${item.titip} pcs\n` +
+      `• Sisa: ${item.sisa} pcs\n` +
+      `• Terjual: ${terjual} pcs\n` +
+      `• Harga Pokok: ${formatIDR(item.hargaPokok)}/pc\n` +
+      `• *Total Setor: ${formatIDR(setor)}*\n\n` +
+      `Terima kasih! 🙏`;
+
+    const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+    Linking.openURL(url).catch(() => {
+      Alert.alert("Error", "Gagal membuka WhatsApp.");
+    });
+  };
 
   // Group by Penitip for Payout Summary Tab
   const consignorsMap = items.reduce((acc, curr) => {
     if (!acc[curr.penitip]) {
       acc[curr.penitip] = {
         penitip: curr.penitip,
+        whatsapp: curr.whatsapp || "",
         itemsCount: 0,
         totalSetor: 0,
         items: [],
@@ -182,13 +259,11 @@ export default function App() {
     acc[curr.penitip].totalSetor += calculateSetor(curr);
     acc[curr.penitip].items.push(curr);
     return acc;
-  }, {} as Record<string, { penitip: string; itemsCount: number; totalSetor: number; items: ConsignmentItem[] }>);
+  }, {} as Record<string, { penitip: string; whatsapp: string; itemsCount: number; totalSetor: number; items: ConsignmentItem[] }>);
 
   const consignorSummaries = Object.values(consignorsMap);
 
-  const formatIDR = (val: number) => {
-    return "Rp " + val.toLocaleString("id-ID");
-  };
+  const totalSetorAmount = items.reduce((acc, curr) => acc + calculateSetor(curr), 0);
 
   return (
     <SafeAreaView style={styles.safeArea} testID="main-container">
@@ -199,7 +274,7 @@ export default function App() {
         <View style={styles.headerTopRow}>
           <View>
             <Text style={styles.headerSubtitle}>APK JASTIP BINTANG SNACK</Text>
-            <Text style={styles.headerTitle}>Manajemen Penitipan</Text>
+            <Text style={styles.headerTitle}>Manajemen Penitipan & WA</Text>
           </View>
           <TouchableOpacity
             style={styles.addButtonHeader}
@@ -314,30 +389,45 @@ export default function App() {
                 const setor = calculateSetor(item);
                 return (
                   <View key={item.id} style={styles.itemCard} testID={`item-card-${index}`}>
-                    <View style={styles.itemCardHeader}>
-                      <View style={styles.penitipTag}>
-                        <Ionicons name="person" size={12} color="#C85A32" />
-                        <Text style={styles.penitipTagText}>{item.penitip}</Text>
-                      </View>
-                      <View style={styles.actionButtonsRow}>
-                        <TouchableOpacity
-                          style={styles.cardIconButton}
-                          onPress={() => openEditModal(item)}
-                          testID={`edit-item-${item.id}`}
-                        >
-                          <Ionicons name="pencil" size={16} color="#3B6E8C" />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={styles.cardIconButton}
-                          onPress={() => handleDeleteItem(item.id)}
-                          testID={`delete-item-${item.id}`}
-                        >
-                          <Ionicons name="trash-outline" size={16} color="#A33324" />
-                        </TouchableOpacity>
+                    <View style={styles.itemTopSection}>
+                      {item.imageUri ? (
+                        <Image source={{ uri: item.imageUri }} style={styles.itemThumb} />
+                      ) : (
+                        <View style={[styles.itemThumb, styles.itemThumbPlaceholder]}>
+                          <Ionicons name="image" size={20} color="#C8BFAF" />
+                        </View>
+                      )}
+                      
+                      <View style={{ flex: 1, marginLeft: 10 }}>
+                        <View style={styles.itemCardHeader}>
+                          <View style={styles.penitipTag}>
+                            <Ionicons name="person" size={12} color="#C85A32" />
+                            <Text style={styles.penitipTagText}>{item.penitip}</Text>
+                          </View>
+                          <View style={styles.actionButtonsRow}>
+                            <TouchableOpacity
+                              style={styles.cardIconButton}
+                              onPress={() => openEditModal(item)}
+                              testID={`edit-item-${item.id}`}
+                            >
+                              <Ionicons name="pencil" size={16} color="#3B6E8C" />
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={styles.cardIconButton}
+                              onPress={() => handleDeleteItem(item.id)}
+                              testID={`delete-item-${item.id}`}
+                            >
+                              <Ionicons name="trash-outline" size={16} color="#A33324" />
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+
+                        <Text style={styles.itemTitle}>{item.itemName}</Text>
+                        {item.whatsapp ? (
+                          <Text style={styles.waText}>WA: {item.whatsapp}</Text>
+                        ) : null}
                       </View>
                     </View>
-
-                    <Text style={styles.itemTitle}>{item.itemName}</Text>
 
                     <View style={styles.itemPricesRow}>
                       <View style={styles.priceCol}>
@@ -370,6 +460,16 @@ export default function App() {
                         <Text style={styles.metricValHighlight}>{formatIDR(setor)}</Text>
                       </View>
                     </View>
+
+                    {/* WhatsApp Share Button */}
+                    <TouchableOpacity
+                      style={styles.whatsappButton}
+                      onPress={() => handleShareWhatsApp(item)}
+                      testID={`whatsapp-share-${item.id}`}
+                    >
+                      <Ionicons name="logo-whatsapp" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                      <Text style={styles.whatsappButtonText}>Kirim Bukti & Rekap ke WA</Text>
+                    </TouchableOpacity>
                   </View>
                 );
               })
@@ -401,9 +501,9 @@ export default function App() {
           testID="recap-view"
         >
           <View style={styles.recapHeaderBanner}>
-            <Text style={styles.recapBannerTitle}>Rekapitulasi Setoran Penitip</Text>
+            <Text style={styles.recapBannerTitle}>Rekapitulasi Setoran & Penitip</Text>
             <Text style={styles.recapBannerSubtitle}>
-              Total kewajiban setor bersih dikalkulasi dari (Titip - Sisa) × Harga Pokok per item.
+              Kirim rekap lengkap beserta bukti foto dan total setor (Titip - Sisa) × Harga Pokok langsung ke WhatsApp penitip.
             </Text>
           </View>
 
@@ -422,6 +522,7 @@ export default function App() {
                   <View style={{ flex: 1, marginLeft: 12 }}>
                     <Text style={styles.consignorName}>{cs.penitip}</Text>
                     <Text style={styles.consignorItemCount}>{cs.itemsCount} jenis barang dititipkan</Text>
+                    {cs.whatsapp ? <Text style={styles.waText}>WA: {cs.whatsapp}</Text> : null}
                   </View>
                   <View style={styles.consignorTotalBadge}>
                     <Text style={styles.consignorTotalLabel}>Total Setor</Text>
@@ -436,13 +537,25 @@ export default function App() {
                     const setorItem = calculateSetor(it);
                     return (
                       <View key={it.id} style={styles.consignorSubItemRow}>
-                        <View style={{ flex: 1 }}>
+                        {it.imageUri ? (
+                          <Image source={{ uri: it.imageUri }} style={styles.subItemThumb} />
+                        ) : null}
+                        <View style={{ flex: 1, marginLeft: it.imageUri ? 8 : 0 }}>
                           <Text style={styles.subItemName}>{it.itemName}</Text>
                           <Text style={styles.subItemMeta}>
-                            Titip: {it.titip} | Sisa: {it.sisa} | Terjual: {terjual} ({formatIDR(it.hargaPokok)}/pc)
+                            Titip: {it.titip} | Sisa: {it.sisa} | Terjual: {terjual}
                           </Text>
                         </View>
-                        <Text style={styles.subItemSetor}>{formatIDR(setorItem)}</Text>
+                        <View style={{ alignItems: "flex-end" }}>
+                          <Text style={styles.subItemSetor}>{formatIDR(setorItem)}</Text>
+                          <TouchableOpacity
+                            onPress={() => handleShareWhatsApp(it)}
+                            style={styles.subItemWaBtn}
+                          >
+                            <Ionicons name="logo-whatsapp" size={12} color="#3B7A57" />
+                            <Text style={styles.subItemWaText}>Kirim WA</Text>
+                          </TouchableOpacity>
+                        </View>
                       </View>
                     );
                   })}
@@ -480,6 +593,24 @@ export default function App() {
             </View>
 
             <ScrollView contentContainerStyle={styles.modalFormScroll} showsVerticalScrollIndicator={false}>
+              {/* Foto Barang */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Foto Barang Snack</Text>
+                <View style={styles.photoPickerRow}>
+                  {imageUri ? (
+                    <Image source={{ uri: imageUri }} style={styles.previewPhoto} />
+                  ) : (
+                    <View style={styles.previewPhotoPlaceholder}>
+                      <Ionicons name="camera-outline" size={24} color="#99948B" />
+                    </View>
+                  )}
+                  <TouchableOpacity style={styles.pickImageBtn} onPress={pickImage} testID="pick-image-btn">
+                    <Ionicons name="image-outline" size={16} color="#C85A32" style={{ marginRight: 6 }} />
+                    <Text style={styles.pickImageBtnText}>Pilih Foto dari Galeri</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
               {/* Nama Penitip */}
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Nama Penitip</Text>
@@ -490,6 +621,20 @@ export default function App() {
                   value={penitip}
                   onChangeText={setPenitip}
                   testID="input-penitip"
+                />
+              </View>
+
+              {/* Nomor WhatsApp */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Nomor WhatsApp Penitip (Utk Kirim Rekap)</Text>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Contoh: 081234567890"
+                  placeholderTextColor="#99948B"
+                  keyboardType="phone-pad"
+                  value={whatsapp}
+                  onChangeText={setWhatsapp}
+                  testID="input-whatsapp"
                 />
               </View>
 
@@ -535,7 +680,7 @@ export default function App() {
                 </View>
               </View>
 
-              {/* Titip & Sisa */}
+              {/* Titip & Sisa (Titip bisa > 1) */}
               <View style={styles.rowInputs}>
                 <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
                   <Text style={styles.inputLabel}>Jumlah Titip (Pcs)</Text>
@@ -630,7 +775,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   headerTitle: {
-    fontSize: 22,
+    fontSize: 20,
     fontFamily: "PlusJakartaSans-Medium",
     color: "#1A1A18",
   },
@@ -761,29 +906,43 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 2,
   },
+  itemTopSection: {
+    flexDirection: "row",
+    marginBottom: 10,
+  },
+  itemThumb: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    backgroundColor: "#F4F1EA",
+  },
+  itemThumbPlaceholder: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
   itemCardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 6,
+    marginBottom: 2,
   },
   penitipTag: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#F7EBE5",
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 3,
     borderRadius: 6,
   },
   penitipTagText: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: "PlusJakartaSans-Medium",
     color: "#9E3C18",
     marginLeft: 4,
   },
   actionButtonsRow: {
     flexDirection: "row",
-    gap: 8,
+    gap: 6,
   },
   cardIconButton: {
     padding: 6,
@@ -791,10 +950,15 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   itemTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: "PlusJakartaSans-Medium",
     color: "#1A1A18",
-    marginBottom: 8,
+    marginBottom: 2,
+  },
+  waText: {
+    fontSize: 11,
+    fontFamily: "PlusJakartaSans-Regular",
+    color: "#3B6E8C",
   },
   itemPricesRow: {
     flexDirection: "row",
@@ -832,6 +996,7 @@ const styles = StyleSheet.create({
   metricsGrid: {
     flexDirection: "row",
     gap: 6,
+    marginBottom: 10,
   },
   metricBox: {
     flex: 1,
@@ -878,6 +1043,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: "PlusJakartaSans-Medium",
     color: "#9E3C18",
+  },
+  whatsappButton: {
+    flexDirection: "row",
+    backgroundColor: "#3B7A57",
+    paddingVertical: 8,
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  whatsappButtonText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontFamily: "PlusJakartaSans-Medium",
   },
   stickyBottomBar: {
     position: "absolute",
@@ -999,11 +1177,16 @@ const styles = StyleSheet.create({
   },
   consignorSubItemRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
     backgroundColor: "#F9F8F6",
     padding: 8,
     borderRadius: 8,
+  },
+  subItemThumb: {
+    width: 36,
+    height: 36,
+    borderRadius: 6,
+    backgroundColor: "#F4F1EA",
   },
   subItemName: {
     fontSize: 13,
@@ -1019,6 +1202,21 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: "PlusJakartaSans-Medium",
     color: "#3B7A57",
+  },
+  subItemWaBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 2,
+    backgroundColor: "#EBF5ED",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  subItemWaText: {
+    fontSize: 10,
+    fontFamily: "PlusJakartaSans-Medium",
+    color: "#3B7A57",
+    marginLeft: 3,
   },
   emptyContainer: {
     alignItems: "center",
@@ -1096,6 +1294,43 @@ const styles = StyleSheet.create({
   },
   rowInputs: {
     flexDirection: "row",
+  },
+  photoPickerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  previewPhoto: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    backgroundColor: "#F4F1EA",
+  },
+  previewPhotoPlaceholder: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    backgroundColor: "#F4F1EA",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#E2DDD5",
+  },
+  pickImageBtn: {
+    flex: 1,
+    flexDirection: "row",
+    height: 44,
+    backgroundColor: "#F7EBE5",
+    borderWidth: 1,
+    borderColor: "#D47853",
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  pickImageBtnText: {
+    fontSize: 13,
+    fontFamily: "PlusJakartaSans-Medium",
+    color: "#9E3C18",
   },
   previewBox: {
     backgroundColor: "#F7EBE5",
