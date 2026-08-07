@@ -34,7 +34,9 @@ import {
   calculateTerjual,
 } from "@/src/mock";
 
-const STORAGE_KEY = "@apk_jastip_bintang_snack_groups_v2";
+const STORAGE_KEY = "@apk_jastip_bintang_snack_groups_v3";
+const BRAND_KEY = "@apk_jastip_bintang_snack_brand_v1";
+const DEFAULT_BRAND = "Bintang Snack";
 
 // ============ MODERN COLOR THEME ============
 const C = {
@@ -77,6 +79,11 @@ export default function App() {
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
+  // Brand editable
+  const [brandName, setBrandName] = useState(DEFAULT_BRAND);
+  const [brandModalVisible, setBrandModalVisible] = useState(false);
+  const [brandDraft, setBrandDraft] = useState("");
+
   // Form Fields
   const [penitip, setPenitip] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
@@ -107,9 +114,32 @@ export default function App() {
     try {
       const saved = await AsyncStorage.getItem(STORAGE_KEY);
       if (saved) setGroups(JSON.parse(saved));
+      const savedBrand = await AsyncStorage.getItem(BRAND_KEY);
+      if (savedBrand) setBrandName(savedBrand);
     } catch (e) {
       console.error("Failed to load saved groups", e);
     }
+  };
+
+  const saveBrand = async () => {
+    const trimmed = brandDraft.trim();
+    if (!trimmed) {
+      showToast("Nama brand tidak boleh kosong.", "error");
+      return;
+    }
+    setBrandName(trimmed);
+    try {
+      await AsyncStorage.setItem(BRAND_KEY, trimmed);
+    } catch (e) {
+      console.error("Failed to save brand", e);
+    }
+    setBrandModalVisible(false);
+    showToast("Brand diperbarui.", "success");
+  };
+
+  const openBrandEdit = () => {
+    setBrandDraft(brandName);
+    setBrandModalVisible(true);
   };
 
   const saveGroupsData = async (newGroups: ConsignmentGroup[]) => {
@@ -182,8 +212,8 @@ export default function App() {
         itemName: "",
         hargaPokok: "",
         hargaJual: "",
-        titip: "1",
-        sisa: "0",
+        titip: "",
+        sisa: "",
         photoSebelum: "",
         photoSisa: "",
       },
@@ -208,8 +238,8 @@ export default function App() {
         itemName: "",
         hargaPokok: "",
         hargaJual: "",
-        titip: "1",
-        sisa: "0",
+        titip: "",
+        sisa: "",
         photoSebelum: "",
         photoSisa: "",
       },
@@ -440,8 +470,18 @@ export default function App() {
       <View style={styles.header} testID="app-header">
         <View style={styles.headerTop}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.headerBrand}>JASTIP BINTANG SNACK</Text>
-            <Text style={styles.headerTitle}>Rekap Titipan</Text>
+            <TouchableOpacity
+              onPress={openBrandEdit}
+              activeOpacity={0.7}
+              style={styles.brandTouchable}
+              testID="brand-edit-btn"
+            >
+              <Text style={styles.headerBrand} numberOfLines={1} adjustsFontSizeToFit>
+                {brandName}
+              </Text>
+              <Ionicons name="pencil" size={11} color={C.accent} style={{ marginLeft: 6 }} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Rekap</Text>
           </View>
           <TouchableOpacity
             style={styles.headerAddBtn}
@@ -609,7 +649,7 @@ export default function App() {
                       options={{ format: "png", quality: 0.95 }}
                       style={styles.shotHidden}
                     >
-                      <RecapShotCard group={group} formatIDR={formatIDR} />
+                      <RecapShotCard group={group} formatIDR={formatIDR} brandName={brandName} />
                     </ViewShot>
 
                     {/* Products list */}
@@ -783,7 +823,7 @@ export default function App() {
                     options={{ format: "png", quality: 0.95 }}
                     style={styles.shotHidden}
                   >
-                    <RecapShotCard group={g} formatIDR={formatIDR} />
+                    <RecapShotCard group={g} formatIDR={formatIDR} brandName={brandName} />
                   </ViewShot>
 
                   <View style={styles.recapItems}>
@@ -880,7 +920,7 @@ export default function App() {
                   <Text style={styles.inputLabel}>Nama Penitip</Text>
                   <TextInput
                     style={styles.textInput}
-                    placeholder="Contoh: Bu Siti, Pak Joko"
+                    placeholder="Sari Ekawati"
                     placeholderTextColor={C.textFaint}
                     value={penitip}
                     onChangeText={setPenitip}
@@ -1004,7 +1044,7 @@ export default function App() {
                         <Text style={styles.inputSubLabel}>Harga Pokok</Text>
                         <TextInput
                           style={styles.textInput}
-                          placeholder="1000"
+                          placeholder="0"
                           placeholderTextColor={C.textFaint}
                           keyboardType="numeric"
                           value={fp.hargaPokok}
@@ -1016,7 +1056,7 @@ export default function App() {
                         <Text style={styles.inputSubLabel}>Harga Jual</Text>
                         <TextInput
                           style={styles.textInput}
-                          placeholder="1500"
+                          placeholder="0"
                           placeholderTextColor={C.textFaint}
                           keyboardType="numeric"
                           value={fp.hargaJual}
@@ -1031,7 +1071,7 @@ export default function App() {
                         <Text style={styles.inputSubLabel}>Titip (pcs)</Text>
                         <TextInput
                           style={styles.textInput}
-                          placeholder="3"
+                          placeholder="0"
                           placeholderTextColor={C.textFaint}
                           keyboardType="numeric"
                           value={fp.titip}
@@ -1043,7 +1083,7 @@ export default function App() {
                         <Text style={styles.inputSubLabel}>Sisa (pcs)</Text>
                         <TextInput
                           style={styles.textInput}
-                          placeholder="1"
+                          placeholder="0"
                           placeholderTextColor={C.textFaint}
                           keyboardType="numeric"
                           value={fp.sisa}
@@ -1095,6 +1135,55 @@ export default function App() {
             </View>
           </KeyboardAvoidingView>
         </View>
+      </Modal>
+
+      {/* ============ BRAND EDIT MODAL ============ */}
+      <Modal
+        transparent
+        visible={brandModalVisible}
+        animationType="fade"
+        onRequestClose={() => setBrandModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={styles.confirmOverlay}
+        >
+          <Animated.View entering={FadeIn.duration(200)} style={styles.brandModalBox} testID="brand-edit-modal">
+            <View style={[styles.emptyIconWrap, { backgroundColor: C.primaryAlt }]}>
+              <Ionicons name="sparkles" size={24} color={C.accent} />
+            </View>
+            <Text style={styles.confirmTitle}>Nama Brand</Text>
+            <Text style={styles.confirmMsg}>
+              Ubah nama brand yang tampil di header. Bebas — bikin sesuka kamu.
+            </Text>
+            <TextInput
+              style={[styles.textInput, { width: "100%", marginBottom: 16 }]}
+              placeholder={DEFAULT_BRAND}
+              placeholderTextColor={C.textFaint}
+              value={brandDraft}
+              onChangeText={setBrandDraft}
+              maxLength={40}
+              autoFocus
+              testID="brand-input"
+            />
+            <View style={styles.confirmActions}>
+              <TouchableOpacity
+                style={styles.confirmCancel}
+                onPress={() => setBrandModalVisible(false)}
+                testID="brand-cancel"
+              >
+                <Text style={styles.confirmCancelText}>Batal</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.confirmDelete, { backgroundColor: C.primary }]}
+                onPress={saveBrand}
+                testID="brand-save"
+              >
+                <Text style={styles.confirmDeleteText}>Simpan</Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* ============ CONFIRM DELETE MODAL ============ */}
@@ -1154,15 +1243,17 @@ export default function App() {
 function RecapShotCard({
   group,
   formatIDR,
+  brandName,
 }: {
   group: ConsignmentGroup;
   formatIDR: (v: number) => string;
+  brandName: string;
 }) {
   const total = group.products.reduce((a, c) => a + calculateSetor(c), 0);
   return (
     <View style={shotStyles.container}>
       <View style={shotStyles.header}>
-        <Text style={shotStyles.brand}>JASTIP BINTANG SNACK</Text>
+        <Text style={shotStyles.brand}>{brandName.toUpperCase()}</Text>
         <Text style={shotStyles.title}>Rekap Titipan</Text>
       </View>
       <View style={shotStyles.penitipRow}>
@@ -1264,12 +1355,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 14,
   },
-  headerBrand: {
-    fontSize: 10,
-    fontFamily: "PlusJakartaSans-Medium",
-    color: C.accent,
-    letterSpacing: 1.5,
+  brandTouchable: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
     marginBottom: 2,
+  },
+  headerBrand: {
+    fontSize: 18,
+    fontStyle: "italic",
+    fontWeight: "600",
+    color: C.accent,
+    letterSpacing: 1.2,
+    fontFamily: Platform.OS === "ios" ? "Georgia-Italic" : "serif",
   },
   headerTitle: {
     fontSize: 22,
@@ -2083,6 +2181,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     width: "100%",
     maxWidth: 340,
+  },
+  brandModalBox: {
+    backgroundColor: C.surface,
+    borderRadius: 20,
+    padding: 24,
+    alignItems: "center",
+    width: "100%",
+    maxWidth: 380,
   },
   confirmTitle: {
     fontSize: 17,
