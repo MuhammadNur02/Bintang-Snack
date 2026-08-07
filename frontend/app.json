@@ -12,19 +12,23 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.emergent.snackinventoryfix.dl97x2",
       "infoPlist": {
-        "NSPhotoLibraryUsageDescription": "Pilih foto item titipan dari galeri"
+        "NSCameraUsageDescription": "Ambil foto bukti barang titipan",
+        "NSPhotoLibraryUsageDescription": "Simpan foto bukti barang titipan",
+        "NSPhotoLibraryAddUsageDescription": "Simpan foto bukti barang titipan"
       }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#000000"
+        "backgroundColor": "#0F172A"
       },
       "edgeToEdgeEnabled": true,
       "package": "com.emergent.snackinventoryfix.dl97x2",
       "permissions": [
+        "CAMERA",
         "READ_EXTERNAL_STORAGE",
-        "READ_MEDIA_IMAGES"
+        "READ_MEDIA_IMAGES",
+        "WRITE_EXTERNAL_STORAGE"
       ]
     },
     "web": {
@@ -46,7 +50,14 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Pilih foto item titipan dari galeri"
+          "photosPermission": "Simpan foto bukti barang titipan",
+          "cameraPermission": "Ambil foto bukti barang titipan"
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Ambil foto bukti barang titipan"
         }
       ]
     ],

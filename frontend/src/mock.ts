@@ -5,7 +5,8 @@ export interface ConsignmentProduct {
   hargaJual: number;
   titip: number;
   sisa: number;
-  imageUri?: string;
+  photoSebelum?: string; // Foto barang saat setor (sebelum dijual)
+  photoSisa?: string;    // Foto barang sisa
 }
 
 export interface ConsignmentGroup {
@@ -30,7 +31,6 @@ export const INITIAL_CONSIGNMENT_GROUPS: ConsignmentGroup[] = [
         hargaJual: 1500,
         titip: 3,
         sisa: 1,
-        imageUri: "https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=400&q=80",
       },
       {
         id: "prod-2",
@@ -39,16 +39,6 @@ export const INITIAL_CONSIGNMENT_GROUPS: ConsignmentGroup[] = [
         hargaJual: 7000,
         titip: 10,
         sisa: 4,
-        imageUri: "https://images.unsplash.com/photo-1590080875515-8a3a8dc5735e?w=400&q=80",
-      },
-      {
-        id: "prod-3",
-        itemName: "Gorengan Aneka",
-        hargaPokok: 1500,
-        hargaJual: 2500,
-        titip: 12,
-        sisa: 2,
-        imageUri: "https://images.unsplash.com/photo-1606755962773-d324e0a13086?w=400&q=80",
       },
     ],
   },
@@ -65,16 +55,6 @@ export const INITIAL_CONSIGNMENT_GROUPS: ConsignmentGroup[] = [
         hargaJual: 3500,
         titip: 15,
         sisa: 5,
-        imageUri: "https://images.unsplash.com/photo-1599487488170-d33190289053?w=400&q=80",
-      },
-      {
-        id: "prod-5",
-        itemName: "Nasi Bakar Special",
-        hargaPokok: 8000,
-        hargaJual: 12000,
-        titip: 5,
-        sisa: 1,
-        imageUri: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=400&q=80",
       },
     ],
   },
